@@ -33,18 +33,16 @@ public class ClientHandler implements Runnable {
         removeClientHandler();
 
         try {
-            if (disReader != null) {
-                disReader.close();
-            }
-            if (dosWriter != null) {
-                dosWriter.close();
-            }
-            if (clientEndpoint != null) {
-                clientEndpoint.close();
-            }
+            if (disReader != null) disReader.close();
+            if (dosWriter != null) dosWriter.close();
+            if (clientEndpoint != null) clientEndpoint.close();
         } catch (IOException e) {
-            e.printStackTrace();
-        }
+            System.out.println("Error during disconnection: " + e.getMessage());
+        } finally {
+        disReader = null;
+        dosWriter = null;
+        clientEndpoint = null;
+    }
     }
 
     private void printCommands() throws IOException {

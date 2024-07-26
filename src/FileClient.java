@@ -9,41 +9,98 @@ public class FileClient {
     private BufferedReader stdIn;
     private String clientHandle;
 
-    public FileClient(String serverAddress, int port) {
-        try {
-            this.clientEndpoint = new Socket(serverAddress, port);
-            this.disReader = new DataInputStream(this.clientEndpoint.getInputStream());
-            this.dosWriter = new DataOutputStream(this.clientEndpoint.getOutputStream());
-            this.stdIn = new BufferedReader(new InputStreamReader(System.in));
-        } catch (IOException e) {
-            closeAll();
-            throw new RuntimeException("Failed to initialize FileClient", e);
-        }
+    public FileClient() {
+        this.stdIn = new BufferedReader(new InputStreamReader(System.in));
     }
 
     public void setClientHandle(String clientHandle) {
         this.clientHandle = clientHandle;
     }
 
+    public boolean connectToServer(String serverAddress, Integer port) throws IOException {
+        try {
+            this.clientEndpoint = new Socket(serverAddress, port);
+            this.disReader = new DataInputStream(clientEndpoint.getInputStream());
+            this.dosWriter = new DataOutputStream(clientEndpoint.getOutputStream());
+            return true;
+        }
+        catch (IOException e) {
+            // e.printStackTrace();
+            return false;
+        }
+    }
+
     public void sendCommand() {
-        while (clientEndpoint.isConnected()) {
+        while (true) {
             try {
                 String command = stdIn.readLine(); // Read user input
                 if (command != null && !command.trim().isEmpty()) {
-                    dosWriter.writeUTF(command);
-                    dosWriter.flush();
+                    String[] commandParts = command.split(" ");
+                    String mainCommand = commandParts[0];
 
-                    // Process server response
-                    String response = disReader.readUTF();
-                    System.out.println("Server response: \n" + response);
+                    if (mainCommand.equals("/join")) {
+                        handleJoinCommand(commandParts);
+                    } else if (clientEndpoint != null && clientEndpoint.isConnected()) {
+                        handleServerCommand(command);
+                    } else {
+                        System.out.println("Not connected to any server. Use /join to connect.");
+                    }
                 }
-
             } catch (IOException e) {
-                System.out.println("Error in communication: " + e.getMessage());
+                System.out.println("Error in reading command: " + e.getMessage());
+                if (clientEndpoint != null && clientEndpoint.isConnected()) {
+                    disconnect();
+                    System.out.println("Client disconnected.");
+                }
             }
         }
-        closeAll();
     }
+
+    private void handleJoinCommand(String[] commandParts) throws IOException {
+        if (commandParts.length >= 3) {
+            String serverAddress = commandParts[1];
+            int port = Integer.parseInt(commandParts[2]);
+            if (!connectToServer(serverAddress, port)) {
+                System.out.println("Error: Connection to the Server has failed! Please check IP Address and Port Number.");
+            } else {
+                System.out.println("Client connected successfully.");
+            }
+        } else {
+            System.out.println("Usage: /join <server-address> <port>");
+        }
+    }
+
+    private void handleServerCommand(String command) {
+        if (command.equals("/leave")) {
+            try {
+                // Notify the server that the client wants to leave
+                dosWriter.writeUTF(command);
+                dosWriter.flush();
+                // Perform client-side cleanup
+                String response = disReader.readUTF();
+                System.out.println("Server response: \n" + response);
+                disconnect();
+            } catch (IOException e) {
+                System.out.println("Error during leaving: " + e.getMessage());
+                disconnect();
+            }
+        } else {
+            try {
+                // Handle other commands
+                dosWriter.writeUTF(command);
+                dosWriter.flush();
+
+                // Process server response
+                String response = disReader.readUTF();
+                System.out.println("Server response: \n" + response);
+            } catch (IOException e) {
+                System.out.println("Error during communication: " + e.getMessage());
+                disconnect();
+            }
+        }
+    }
+
+
 
     private void downloadFile(String fileName) {
         try {
@@ -71,27 +128,23 @@ public class FileClient {
         }
     }
 
-    private void closeAll() {
+    private void disconnect() {
         try {
-            if (stdIn != null) stdIn.close();
             if (disReader != null) disReader.close();
             if (dosWriter != null) dosWriter.close();
             if (clientEndpoint != null) clientEndpoint.close();
+
+            System.out.println("Client disconnected.");
         } catch (IOException e) {
-            e.printStackTrace();
+            System.out.println("Error during disconnection: " + e.getMessage());
         }
+        clientEndpoint = null;
     }
 
     public static void main(String[] args) {
-        if (args.length < 2) {
-            System.err.println("Usage: java FileClient <server-address> <port>");
-            return;
-        }
+        System.out.println("Client instantiated successfully.");
 
-        String serverAddress = args[0];
-        int port = Integer.parseInt(args[1]);
-
-        FileClient client = new FileClient(serverAddress, port);
+        FileClient client = new FileClient();
         client.sendCommand();
     }
 }

@@ -3,6 +3,38 @@ import java.net.*;
 import java.io.*;
 
 public class FileServer {
+    private ServerSocket serverSocket;
+
+    public FileServer(ServerSocket serverSocket) {
+        this.serverSocket = serverSocket;
+    }
+
+    public void runServer() {
+        try {
+            while (!serverSocket.isClosed()) {
+                // listen for incoming client connections
+                Socket serverEndpoint = serverSocket.accept();
+
+                System.out.println("Server: New client connected: " + serverEndpoint.getRemoteSocketAddress());
+                ClientHandler clientHandler = new ClientHandler(serverEndpoint);
+
+                Thread thread = new Thread(clientHandler);
+                thread.start();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void closeServer() {
+        try {
+            if (serverSocket != null) {
+                serverSocket.close();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private static void sendFile(String fileName, DataOutputStream dosWriter) {
         try {
@@ -27,57 +59,15 @@ public class FileServer {
         }
     }
 
-    private static void printCommands(DataOutputStream dosWriter) throws IOException {
-        dosWriter.writeUTF(
-                    "+-------------------------- LIST OF COMMANDS ---------------------------------+\n" +
-                        "| Input Syntax                    |   Description                             |\n" +
-                        "+---------------------------------+-------------------------------------------+\n" +
-                        "| /join <server_ip_add> <port>    | Connect to the server application         |\n" +
-                        "| /leave                          | Disconnect to the server application      |\n" +
-                        "| /register <handle>              | Register a unique handle or alias         |\n" +
-                        "| /store <filename>               | Send file to server                       |\n" +
-                        "| /dir                            | Request directory file list from a server |\n" +
-                        "| /?                              | Request command help to output all Input  |\n" +
-                        "|                                 | Syntax commands for references            |\n" +
-                        "+-----------------------------------------------------------------------------+"
-        );
-    }
-
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         String sServerAddress = args[0];
         int nPort = Integer.parseInt(args[1]);
         System.out.println("Server: Assigned IP Address " + args[0] + "...");
         System.out.println("Server: Listening on port " + args[1] + "...");
-        ServerSocket serverSocket;
-        Socket serverEndpoint;
 
-        try {
-            serverSocket = new ServerSocket(nPort);
-            serverEndpoint = serverSocket.accept();
+        ServerSocket serverSocket = new ServerSocket(nPort);
+        FileServer server = new FileServer(serverSocket);
 
-            System.out.println("Server: New client connected: " + serverEndpoint.getRemoteSocketAddress());
-
-            DataInputStream disReader = new DataInputStream(serverEndpoint.getInputStream());
-            DataOutputStream dosWriter = new DataOutputStream(serverEndpoint.getOutputStream());
-
-            while (true) {
-                String command = disReader.readUTF();
-                System.out.println("Client Input: " + command);
-
-                switch (command) {
-                    case "/?":
-                        printCommands(dosWriter);
-                        break;
-                    case "/leave":
-                        dosWriter.writeUTF("/leave");
-                        break;
-                    default:
-                        dosWriter.writeUTF("Error: Command not found.\n");
-                        break;
-                }
-            }
-        } catch (Exception e) {
-            System.out.println("Server: Connection is terminated.");
-        }
+        server.runServer();
     }
 }

@@ -7,6 +7,8 @@ import java.util.Set;
 public class ClientHandler implements Runnable {
 
     public static ArrayList<ClientHandler> clientHandlerList = new ArrayList<>();
+    // private static ArrayList<String> fileList = new ArrayList<String>();
+
     private static Set<String> registeredHandles = new HashSet<>();
     private Socket clientEndpoint;
     private DataInputStream disReader;
@@ -73,8 +75,14 @@ public class ClientHandler implements Runnable {
     }
 
     private void sendFile(String fileName) {
+        File serverDir = new File("serverDir");
+        // Ensure serverDir exists
+        if (!serverDir.exists()) {
+            serverDir.mkdir();
+        }
+    
+        File file = new File(serverDir, fileName);
         try {
-            File file = new File(fileName);
             if (file.exists()) {
                 long numBytes = file.length();
                 dosWriter.writeLong(numBytes); // Send file size
@@ -90,14 +98,14 @@ public class ClientHandler implements Runnable {
                 }
                 System.out.println("Server: Sent file \"" + fileName + "\"");
             } else {
-                dosWriter.writeUTF("Error: File not found.");
+                dosWriter.writeLong(-1); // Send -1 to indicate file not found
                 dosWriter.flush();
             }
         } catch (IOException e) {
-            System.out.println("Error sending file: " + e.getMessage());
+            System.out.println("Error during file operation: " + e.getMessage());
         }
     }
-
+    
     private void receiveFile(String filename) {
         File serverDir = new File("serverDir");
         if (!serverDir.exists()) {
@@ -139,7 +147,7 @@ public class ClientHandler implements Runnable {
                 fileList.append(file.getName()).append("\n");
             }
             try {
-                dosWriter.writeUTF("Directory listing:\n" + fileList.toString());
+                dosWriter.writeUTF("Server Directory:\n" + fileList.toString());
                 dosWriter.flush();
 
                 System.out.println("Server: Sent directory listing to client.");
@@ -158,13 +166,15 @@ public class ClientHandler implements Runnable {
     
     private void checkRegistration(String handle) throws IOException {
         if (registeredHandles.contains(handle)) {
-            dosWriter.writeUTF("Error: Handle already registered.");
+            dosWriter.writeUTF("Error: Registration failed. Handle or alias already exists.");
             dosWriter.flush();
         } else {
             this.clientHandle = handle;
             registeredHandles.add(handle);
-            dosWriter.writeUTF("Registration successful. Handle: " + handle);
+            dosWriter.writeUTF("Welcome " + handle + "!");
+            System.out.println("Server: Registered new user - " + handle);
             dosWriter.flush();
+
         }
     }
 

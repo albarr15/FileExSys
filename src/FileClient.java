@@ -12,6 +12,7 @@ public class FileClient {
     private String clientHandle;
 
     private boolean isRegistered = false;
+    private boolean isConnected = false;
 
     public FileClient() {
         this.stdIn = new BufferedReader(new InputStreamReader(System.in));
@@ -26,6 +27,7 @@ public class FileClient {
             this.clientEndpoint = new Socket(serverAddress, port);
             this.disReader = new DataInputStream(clientEndpoint.getInputStream());
             this.dosWriter = new DataOutputStream(clientEndpoint.getOutputStream());
+            isConnected = true;
             return true;
         }
         catch (IOException e) {
@@ -53,6 +55,7 @@ public class FileClient {
                         "| /register <handle>              | Register a unique handle or alias         |\n" +
                         "| /store <filename>               | Send file to server                       |\n" +
                         "| /dir                            | Request directory file list from a server |\n" +
+                        "| /get <filename>                 | Request a file from a server              |\n" +
                         "| /?                              | Request command help to output all Input  |\n" +
                         "|                                 | Syntax commands for references            |\n" +
                         "+-----------------------------------------------------------------------------+";
@@ -95,8 +98,11 @@ public class FileClient {
                         handleServerCommand(command);
                     }
 
+                    else if (mainCommand.equals("/leave")) {
+                        System.out.println("Error: Disconnection failed. Please connect to the server first.");
+                    }
                     else {
-                        System.out.println("Not connected to any server. Use /join to connect.");
+                        System.out.println("Error: Not connected to any server. Use /join to connect.");
                     }
                 }
             } catch (IOException e) {
@@ -116,10 +122,10 @@ public class FileClient {
             if (!connectToServer(serverAddress, port)) {
                 System.out.println("Error: Connection to the Server has failed! Please check IP Address and Port Number.");
             } else {
-                System.out.println("Client connected successfully.");
+                System.out.println("Connection to the File Exchange Server is successful!");
             }
         } else {
-            System.out.println("Usage: /join <server-address> <port>");
+            System.out.println("Error: Usage: /join <server-address> <port>");
         }
     }
 
@@ -155,36 +161,40 @@ public class FileClient {
 
     private void handleStoreCommand(String fileName) {
         try {
-            File file = new File(fileName);
-            if (!file.exists()) {
-                System.out.println("Error: File not found.");
-                return;
-            }
-    
-            // Send the command and filename to the server
-            dosWriter.writeUTF("/store " + fileName);
-            dosWriter.flush();
-    
-            // Send the file to the server
-            try (FileInputStream fileInStream = new FileInputStream(file)) {
-                long fileSize = file.length();
-                dosWriter.writeLong(fileSize);
-                dosWriter.flush();
-    
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                while ((bytesRead = fileInStream.read(buffer)) != -1) {
-                    dosWriter.write(buffer, 0, bytesRead);
+            if(isConnected) {
+                File file = new File(fileName);
+                if (!file.exists()) {
+                    System.out.println("Error: File not found.");
+                    return;
                 }
-    
+        
+                // Send the command and filename to the server
+                dosWriter.writeUTF("/store " + fileName);
                 dosWriter.flush();
+        
+                // Send the file to the server
+                try (FileInputStream fileInStream = new FileInputStream(file)) {
+                    long fileSize = file.length();
+                    dosWriter.writeLong(fileSize);
+                    dosWriter.flush();
+        
+                    byte[] buffer = new byte[4096];
+                    int bytesRead;
+                    while ((bytesRead = fileInStream.read(buffer)) != -1) {
+                        dosWriter.write(buffer, 0, bytesRead);
+                    }
+        
+                    dosWriter.flush();
 
-                 // Get the current timestamp
-                LocalDateTime now = LocalDateTime.now();
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                String timestamp = now.format(formatter);
+                    // Get the current timestamp
+                    LocalDateTime now = LocalDateTime.now();
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    String timestamp = now.format(formatter);
 
-                System.out.println("User" + "<" + timestamp + ">: Uploaded " + fileName);
+                    System.out.println("User" + "<" + timestamp + ">: Uploaded " + fileName);
+                }
+            } else {
+                System.out.println("Error: Not connected to any server. Use /join to connect.");
             }
         } catch (IOException e) {
             System.out.println("Error during file sending: " + e.getMessage());
@@ -193,13 +203,17 @@ public class FileClient {
     
     private void handleDirCommand() {
         try {
-            // Send the /dir command to the server
-            dosWriter.writeUTF("/dir");
-            dosWriter.flush();
-    
-            // Read the server's response (list of files)
-            String response = disReader.readUTF();
-            System.out.println("Server response: \n" + response);
+            if(isConnected) {
+                // Send the /dir command to the server
+                dosWriter.writeUTF("/dir");
+                dosWriter.flush();
+        
+                // Read the server's response (list of files)
+                String response = disReader.readUTF();
+                System.out.println("Server response: \n" + response);
+            } else {
+                System.out.println("Error: Not connected to any server. Use /join to connect.");
+            }
         } catch (IOException e) {
             System.out.println("Error during directory listing: " + e.getMessage());
         }
@@ -207,16 +221,21 @@ public class FileClient {
 
     private void handleRegisterCommand(String handle) {
         try {
-            dosWriter.writeUTF("/register " + handle);
-            dosWriter.flush();
-    
-            String response = disReader.readUTF();
-    
-            if (response.contains("Registration successful.")) {
-                isRegistered = true; // Set isRegistered to true if registration is successful
-                System.out.println("Registration successful.");
-            } else {
-                System.out.println("Registration failed: " + response);
+            if(isConnected) {
+                dosWriter.writeUTF("/register " + handle);
+                dosWriter.flush();
+        
+                String response = disReader.readUTF();
+        
+                if (response.contains("Welcome ")) {
+                    isRegistered = true; // Set isRegistered to true if registration is successful
+                    System.out.println(response);
+                } else {
+                    System.out.println(response);
+                }
+            }
+            else {
+                System.out.println("Error: Not connected to any server. Use /join to connect.");
             }
         } catch (IOException e) {
             System.out.println("Error during registration: " + e.getMessage());
@@ -225,65 +244,43 @@ public class FileClient {
 
     private void handleGetCommand(String fileName) {
         try {
-            // Send the /get command with the filename to the server
-            dosWriter.writeUTF("/get " + fileName);
-            dosWriter.flush();
-    
-            // Read the file size from the server
-            long fileSize = disReader.readLong();
-            if (fileSize <= 0) {
-                System.out.println("Error: File not found or empty.");
-                return;
-            }
-    
-            // Read the file content
-            FileOutputStream fileOutStream = new FileOutputStream(fileName);
-            byte[] buffer = new byte[4096];
-            int readBytes;
-            long total = 0;
-    
-            while (total < fileSize && (readBytes = disReader.read(buffer, 0, (int)Math.min(buffer.length, fileSize - total))) != -1) {
-                fileOutStream.write(buffer, 0, readBytes);
-                total += readBytes;
-            }
-            fileOutStream.close();
-    
-            if (total == fileSize) {
-                System.out.println("Client: Downloaded file \"" + fileName + "\"");
+            if(isConnected) {
+                // Send the /get command with the filename to the server
+                dosWriter.writeUTF("/get " + fileName);
+                dosWriter.flush();
+        
+                // Read the file size from the server
+                long fileSize = disReader.readLong();
+                if (fileSize == -1) {
+                    System.out.println("Error: File not found on the server.");
+                    return;
+                }
+        
+                // Read the file content
+                FileOutputStream fileOutStream = new FileOutputStream(fileName);
+                byte[] buffer = new byte[4096];
+                int readBytes;
+                long total = 0;
+        
+                while (total < fileSize && (readBytes = disReader.read(buffer, 0, (int)Math.min(buffer.length, fileSize - total))) != -1) {
+                    fileOutStream.write(buffer, 0, readBytes);
+                    total += readBytes;
+                }
+                fileOutStream.close();
+        
+                if (total == fileSize) {
+                    System.out.println("File received from Server: " + fileName);
+                } else {
+                    System.out.println("Error: File not completely received.");
+                }
             } else {
-                System.out.println("Client: File download incomplete.");
+                System.out.println("Error: Not connected to any server. Use /join to connect.");
             }
-    
         } catch (IOException e) {
             System.out.println("Error during file download: " + e.getMessage());
         }
     }
-
-    private void downloadFile(String fileName) {
-        try {
-            long fileSize = disReader.readLong();
-
-            FileOutputStream fileOutStream = new FileOutputStream(fileName);
-            byte[] buffer = new byte[4096];
-            int readBytes;
-            long total = 0;
-
-            while ((total < fileSize) &&
-                    (readBytes = disReader.read(buffer, 0, (int)Math.min(buffer.length, fileSize - total))) != -1) {
-                fileOutStream.write(buffer, 0, readBytes);
-                total += readBytes;
-            }
-            fileOutStream.close();
-
-            if (total == fileSize) {
-                System.out.println("Client: Downloaded file \"" + fileName + "\"");
-            } else {
-                System.out.println("Client: File download incomplete.");
-            }
-        } catch (IOException e) {
-            System.out.println("Error downloading file: " + e.getMessage());
-        }
-    }
+    
 
     private void disconnect() {
         try {
@@ -319,8 +316,6 @@ public class FileClient {
         "+-----------------------------------------------------------------------------+";
 
         System.out.println(commands);
-        
-
         client.sendCommand();
     }
 }

@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
-public class ClientHandler implements Runnable {
+public class ClientHandler  implements Runnable {
 
     public static ArrayList<ClientHandler> clientHandlerList = new ArrayList<>();
     // private static ArrayList<String> fileList = new ArrayList<String>();

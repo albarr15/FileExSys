@@ -1,4 +1,5 @@
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -24,9 +25,15 @@ public class FileClient {
 
     public boolean connectToServer(String serverAddress, Integer port) throws IOException {
         try {
-            this.clientEndpoint = new Socket(serverAddress, port);
+            this.clientEndpoint = new Socket();
+
+            int timeout = 5000; // will attempt to connect within 5 seconds
+
+            this.clientEndpoint.connect(new InetSocketAddress(serverAddress, port), timeout);
+
             this.disReader = new DataInputStream(clientEndpoint.getInputStream());
             this.dosWriter = new DataOutputStream(clientEndpoint.getOutputStream());
+
             isConnected = true;
             return true;
         }

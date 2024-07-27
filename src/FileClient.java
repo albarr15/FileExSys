@@ -1,5 +1,7 @@
 import java.io.*;
 import java.net.Socket;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class FileClient {
 
@@ -33,16 +35,47 @@ public class FileClient {
     public void sendCommand() {
         while (true) {
             try {
+                System.out.println("\nEnter command: ");
                 String command = stdIn.readLine(); // Read user input
                 if (command != null && !command.trim().isEmpty()) {
                     String[] commandParts = command.split(" ");
                     String mainCommand = commandParts[0];
 
-                    if (mainCommand.equals("/join")) {
+                    if (mainCommand.equals("/?")) {
+                        String commands =
+                        "+-------------------------- LIST OF COMMANDS ---------------------------------+\n" +
+                        "| Input Syntax                    |   Description                             |\n" +
+                        "+---------------------------------+-------------------------------------------+\n" +
+                        "| /join <server_ip_add> <port>    | Connect to the server application         |\n" +
+                        "| /leave                          | Disconnect to the server application      |\n" +
+                        "| /register <handle>              | Register a unique handle or alias         |\n" +
+                        "| /store <filename>               | Send file to server                       |\n" +
+                        "| /dir                            | Request directory file list from a server |\n" +
+                        "| /?                              | Request command help to output all Input  |\n" +
+                        "|                                 | Syntax commands for references            |\n" +
+                        "+-----------------------------------------------------------------------------+";
+
+                        System.out.println(commands);
+                    }
+                    
+                    else if (mainCommand.equals("/join")) {
                         handleJoinCommand(commandParts);
-                    } else if (clientEndpoint != null && clientEndpoint.isConnected()) {
+                    }
+                    
+                    else if (mainCommand.equals("/store") && commandParts.length > 1) {
+                        String fileName = commandParts[1];
+                        handleStoreCommand(fileName);
+                    }
+                    
+                    else if (clientEndpoint != null && clientEndpoint.isConnected()) {
                         handleServerCommand(command);
-                    } else {
+                    }
+
+                    else if (mainCommand.equals("/dir")) {
+                        handleDirCommand();
+                    }
+
+                    else {
                         System.out.println("Not connected to any server. Use /join to connect.");
                     }
                 }
@@ -98,9 +131,59 @@ public class FileClient {
                 disconnect();
             }
         }
+    } 
+
+    private void handleStoreCommand(String fileName) {
+        try {
+            File file = new File(fileName);
+            if (!file.exists()) {
+                System.out.println("Error: File not found.");
+                return;
+            }
+    
+            // Send the command and filename to the server
+            dosWriter.writeUTF("/store " + fileName);
+            dosWriter.flush();
+    
+            // Send the file to the server
+            try (FileInputStream fileInStream = new FileInputStream(file)) {
+                long fileSize = file.length();
+                dosWriter.writeLong(fileSize);
+                dosWriter.flush();
+    
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = fileInStream.read(buffer)) != -1) {
+                    dosWriter.write(buffer, 0, bytesRead);
+                }
+    
+                dosWriter.flush();
+
+                 // Get the current timestamp
+                LocalDateTime now = LocalDateTime.now();
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                String timestamp = now.format(formatter);
+
+                System.out.println("User" + "<" + timestamp + ">: Uploaded " + fileName);
+            }
+        } catch (IOException e) {
+            System.out.println("Error during file sending: " + e.getMessage());
+        }
     }
-
-
+    
+    private void handleDirCommand() {
+        try {
+            // Send the /dir command to the server
+            dosWriter.writeUTF("/dir");
+            dosWriter.flush();
+    
+            // Read the server's response (list of files)
+            String response = disReader.readUTF();
+            System.out.println("Server response: \n" + response);
+        } catch (IOException e) {
+            System.out.println("Error during directory listing: " + e.getMessage());
+        }
+    }
 
     private void downloadFile(String fileName) {
         try {
@@ -145,6 +228,25 @@ public class FileClient {
         System.out.println("Client instantiated successfully.");
 
         FileClient client = new FileClient();
+
+        
+        String commands =
+        "+-------------------------- LIST OF COMMANDS ---------------------------------+\n" +
+        "| Input Syntax                    |   Description                             |\n" +
+        "+---------------------------------+-------------------------------------------+\n" +
+        "| /join <server_ip_add> <port>    | Connect to the server application         |\n" +
+        "| /leave                          | Disconnect to the server application      |\n" +
+        "| /register <handle>              | Register a unique handle or alias         |\n" +
+        "| /store <filename>               | Send file to server                       |\n" +
+        "| /dir                            | Request directory file list from a server |\n" +
+        "| /get <filename>                 | Request a file from a server              |\n" +
+        "| /?                              | Request command help to output all Input  |\n" +
+        "|                                 | Syntax commands for references            |\n" +
+        "+-----------------------------------------------------------------------------+";
+
+        System.out.println(commands);
+        
+
         client.sendCommand();
     }
 }

@@ -11,6 +11,8 @@ public class FileClient {
     private BufferedReader stdIn;
     private String clientHandle;
 
+    private boolean isRegistered = false;
+
     public FileClient() {
         this.stdIn = new BufferedReader(new InputStreamReader(System.in));
     }
@@ -63,16 +65,26 @@ public class FileClient {
                     }
                     
                     else if (mainCommand.equals("/store") && commandParts.length > 1) {
-                        String fileName = commandParts[1];
-                        handleStoreCommand(fileName);
+                        if(isRegistered) {
+                            String fileName = commandParts[1];
+                            handleStoreCommand(fileName);
+                        }
+                        else {
+                            System.out.println("Error: You need to register first with /register <handle>");
+                        }
                     }
                     
-                    else if (clientEndpoint != null && clientEndpoint.isConnected()) {
-                        handleServerCommand(command);
-                    }
-
                     else if (mainCommand.equals("/dir")) {
                         handleDirCommand();
+                    }
+
+                    else if (mainCommand.equals("/register") && commandParts.length > 1) {
+                        String handle = commandParts[1];
+                        handleRegisterCommand(handle);
+                    }
+
+                    else if (clientEndpoint != null && clientEndpoint.isConnected()) {
+                        handleServerCommand(command);
                     }
 
                     else {
@@ -182,6 +194,24 @@ public class FileClient {
             System.out.println("Server response: \n" + response);
         } catch (IOException e) {
             System.out.println("Error during directory listing: " + e.getMessage());
+        }
+    }
+
+    private void handleRegisterCommand(String handle) {
+        try {
+            dosWriter.writeUTF("/register " + handle);
+            dosWriter.flush();
+    
+            String response = disReader.readUTF();
+    
+            if (response.contains("Registration successful.")) {
+                isRegistered = true; // Set isRegistered to true if registration is successful
+                System.out.println("Registration successful.");
+            } else {
+                System.out.println("Registration failed: " + response);
+            }
+        } catch (IOException e) {
+            System.out.println("Error during registration: " + e.getMessage());
         }
     }
 

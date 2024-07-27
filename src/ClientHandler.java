@@ -1,14 +1,17 @@
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 public class ClientHandler implements Runnable {
 
     public static ArrayList<ClientHandler> clientHandlerList = new ArrayList<>();
+    private static Set<String> registeredHandles = new HashSet<>();
     private Socket clientEndpoint;
     private DataInputStream disReader;
     private DataOutputStream dosWriter;
-    private String clientHandle;
+    private String clientHandle = null;
 
     public ClientHandler(Socket clientEndpoint) {
         this.clientEndpoint = clientEndpoint;
@@ -27,6 +30,9 @@ public class ClientHandler implements Runnable {
 
     public void removeClientHandler() {
         clientHandlerList.remove(this);
+        if (clientHandle != null) {
+            registeredHandles.remove(clientHandle);
+        }
     }
 
     public void closeAll() {
@@ -147,6 +153,18 @@ public class ClientHandler implements Runnable {
         }
     }
     
+    private void checkRegistration(String handle) throws IOException {
+        if (registeredHandles.contains(handle)) {
+            dosWriter.writeUTF("Error: Handle already registered.");
+            dosWriter.flush();
+        } else {
+            this.clientHandle = handle;
+            registeredHandles.add(handle);
+            dosWriter.writeUTF("Registration successful. Handle: " + handle);
+            dosWriter.flush();
+        }
+    }
+
     @Override
     public void run() {
         String command;
@@ -161,6 +179,13 @@ public class ClientHandler implements Runnable {
                 String[] commandParts = command.split(" ");
                 String mainCommand = commandParts[0];
 
+                // Only registered clients can use commands other than /join, /leave, and /?
+                if (clientHandle == null && !mainCommand.equals("/join") && !mainCommand.equals("/leave") && !mainCommand.equals("/?") && !mainCommand.equals("/register")) {
+                    dosWriter.writeUTF("Error: You need to register first with /register <handle>");
+                    dosWriter.flush();
+                    continue;
+                }
+
                 switch (mainCommand) {
                     case "/leave":
                         dosWriter.writeUTF("Connection closed. Thank you!");
@@ -171,11 +196,26 @@ public class ClientHandler implements Runnable {
                     case "/?":
                         printCommands();
                         break;
-                        
+                    
+                    case "/register":
+                        if (commandParts.length > 1) {
+                            String handle = commandParts[1];
+                            checkRegistration(handle);
+                        } else {
+                            dosWriter.writeUTF("Error: Missing handle for /register command.");
+                            dosWriter.flush();
+                        }
+                    break;
+
                     case "/store":
                         if (commandParts.length > 1) {
                             String fileName = commandParts[1];
-                            receiveFile(fileName);
+                            if (clientHandle == null) {
+                                dosWriter.writeUTF("Error: You need to register first with /register <handle>");
+                                dosWriter.flush();
+                            } else {
+                                receiveFile(fileName);
+                            }
                         } else {
                             dosWriter.writeUTF("Error: Missing filename for /store command.");
                             dosWriter.flush();
@@ -183,7 +223,12 @@ public class ClientHandler implements Runnable {
                         break;
                     
                     case "/dir":
-                        sendDirectoryList();
+                        if (clientHandle == null) {
+                            dosWriter.writeUTF("Error: You need to register first with /register <handle>");
+                            dosWriter.flush();
+                        } else {
+                            sendDirectoryList();
+                        }
                         break;
 
                     default:

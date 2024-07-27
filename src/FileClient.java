@@ -83,6 +83,14 @@ public class FileClient {
                         handleRegisterCommand(handle);
                     }
 
+                    else if (mainCommand.equals("/get") && commandParts.length > 1) {
+                        if (isRegistered) {
+                            String fileName = commandParts[1];
+                            handleGetCommand(fileName);
+                        } else {
+                            System.out.println("Error: You need to register first with /register <handle>");
+                        }
+                    }
                     else if (clientEndpoint != null && clientEndpoint.isConnected()) {
                         handleServerCommand(command);
                     }
@@ -212,6 +220,42 @@ public class FileClient {
             }
         } catch (IOException e) {
             System.out.println("Error during registration: " + e.getMessage());
+        }
+    }
+
+    private void handleGetCommand(String fileName) {
+        try {
+            // Send the /get command with the filename to the server
+            dosWriter.writeUTF("/get " + fileName);
+            dosWriter.flush();
+    
+            // Read the file size from the server
+            long fileSize = disReader.readLong();
+            if (fileSize <= 0) {
+                System.out.println("Error: File not found or empty.");
+                return;
+            }
+    
+            // Read the file content
+            FileOutputStream fileOutStream = new FileOutputStream(fileName);
+            byte[] buffer = new byte[4096];
+            int readBytes;
+            long total = 0;
+    
+            while (total < fileSize && (readBytes = disReader.read(buffer, 0, (int)Math.min(buffer.length, fileSize - total))) != -1) {
+                fileOutStream.write(buffer, 0, readBytes);
+                total += readBytes;
+            }
+            fileOutStream.close();
+    
+            if (total == fileSize) {
+                System.out.println("Client: Downloaded file \"" + fileName + "\"");
+            } else {
+                System.out.println("Client: File download incomplete.");
+            }
+    
+        } catch (IOException e) {
+            System.out.println("Error during file download: " + e.getMessage());
         }
     }
 

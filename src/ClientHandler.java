@@ -75,23 +75,26 @@ public class ClientHandler implements Runnable {
     private void sendFile(String fileName) {
         try {
             File file = new File(fileName);
-            FileInputStream fileInStream = new FileInputStream(file);
-
-            long numBytes = file.length();
-            dosWriter.writeLong(numBytes);
-
-            byte[] buffer = new byte[4096];
-            int readBytes;
-
-            System.out.println("Server: Sending file \"" + file.getName() + "\" (" + file.length() + " bytes)");
-
-            while ((readBytes = fileInStream.read(buffer)) != -1) {
-                dosWriter.write(buffer, 0, readBytes);
+            if (file.exists()) {
+                long numBytes = file.length();
+                dosWriter.writeLong(numBytes); // Send file size
+                dosWriter.flush();
+    
+                try (FileInputStream fileInStream = new FileInputStream(file)) {
+                    byte[] buffer = new byte[4096];
+                    int readBytes;
+                    while ((readBytes = fileInStream.read(buffer)) != -1) {
+                        dosWriter.write(buffer, 0, readBytes);
+                    }
+                    dosWriter.flush();
+                }
+                System.out.println("Server: Sent file \"" + fileName + "\"");
+            } else {
+                dosWriter.writeUTF("Error: File not found.");
+                dosWriter.flush();
             }
-
-            fileInStream.close();
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (IOException e) {
+            System.out.println("Error sending file: " + e.getMessage());
         }
     }
 
@@ -228,6 +231,16 @@ public class ClientHandler implements Runnable {
                             dosWriter.flush();
                         } else {
                             sendDirectoryList();
+                        }
+                        break;
+                    
+                    case "/get":
+                        if (commandParts.length > 1) {
+                            String fileName = commandParts[1];
+                            sendFile(fileName); // Send the requested file
+                        } else {
+                            dosWriter.writeUTF("Error: Missing filename for /get command.");
+                            dosWriter.flush();
                         }
                         break;
 

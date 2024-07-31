@@ -193,6 +193,21 @@ public class ClientHandler  implements Runnable {
         }
     }
 
+    private void unicastMsg(String endClientName, String message) {
+        for (ClientHandler clientHandler : clientHandlerList) {
+            try {
+                if (clientHandler.clientName.equals(endClientName)) {
+                    String unicastMsg = clientName + ": " + message;
+                    clientHandler.dosWriter.writeUTF(unicastMsg);
+                    clientHandler.dosWriter.flush();
+                    break;
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
 
     @Override
     public void run() {
@@ -276,9 +291,22 @@ public class ClientHandler  implements Runnable {
                         if (commandParts.length > 1) {
                             // get message (2nd element of commandParts until last)
                             String message = String.join(" ", Arrays.copyOfRange(commandParts, 1, commandParts.length));
-                            broadcastMsg(message); // Send the requested file
+                            broadcastMsg(message);
                         } else {
                             dosWriter.writeUTF("Error: Missing message for /broadcast command.");
+                            dosWriter.flush();
+                        }
+                        break;
+
+                    case "/unicast":
+                        if (commandParts.length > 2) {
+                            // get end client name (the one who receives the message)
+                            String endClientName = commandParts[1];
+                            // get message (3rd element of commandParts until last)
+                            String message = String.join(" ", Arrays.copyOfRange(commandParts, 2, commandParts.length));
+                            unicastMsg(endClientName, message);
+                        } else {
+                            dosWriter.writeUTF("Error: Usage: /unicast <end-client name> <message>");
                             dosWriter.flush();
                         }
                         break;

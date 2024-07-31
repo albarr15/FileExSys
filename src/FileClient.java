@@ -111,6 +111,19 @@ public class FileClient {
                             System.out.println("Error: You need to register first with /register <handle>");
                         }
                     }
+
+                    else if (mainCommand.equals("/unicast") && commandParts.length > 2) {
+                        if (isRegistered) {
+                            // get end client name (the one who receives the message)
+                            String endClientName = commandParts[1];
+                            // get message (3rd element of commandParts until last)
+                            String message = String.join(" ", Arrays.copyOfRange(commandParts, 2, commandParts.length));
+                            sendPrivateMsg(endClientName, message);
+                        } else {
+                            System.out.println("Error: Usage: /unicast <end-client name> <message>");
+                        }
+                    }
+
                     else if (clientEndpoint != null && clientEndpoint.isConnected()) {
                         handleServerCommand(command);
                     }
@@ -288,6 +301,20 @@ public class FileClient {
             if (isConnected) {
                 // Send the /broadcast command with the message to the server
                 dosWriter.writeUTF("/broadcast " + message);
+                dosWriter.flush();
+            } else {
+                System.out.println("Error: Not connected to any server. Use /join to connect.");
+            }
+        } catch (IOException e) {
+            System.out.println("Error during sending message: " + e.getMessage());
+        }
+    }
+
+    private void sendPrivateMsg(String endClientName, String message) {
+        try {
+            if (isConnected) {
+                // Send the /broadcast command with the message to the server
+                dosWriter.writeUTF("/unicast " + endClientName + " " + message);
                 dosWriter.flush();
             } else {
                 System.out.println("Error: Not connected to any server. Use /join to connect.");

@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -13,7 +14,7 @@ public class ClientHandler  implements Runnable {
     private Socket clientEndpoint;
     private DataInputStream disReader;
     private DataOutputStream dosWriter;
-    private String clientHandle = null;
+    private String clientName = null;
 
     public ClientHandler(Socket clientEndpoint) {
         this.clientEndpoint = clientEndpoint;
@@ -26,14 +27,14 @@ public class ClientHandler  implements Runnable {
         }
     }
 
-    public void setClientHandle(String clientHandle) {
-        this.clientHandle = clientHandle;
+    public void setClientHandle(String clientName) {
+        this.clientName = clientName;
     }
 
     public void removeClientHandler() {
         clientHandlerList.remove(this);
-        if (clientHandle != null) {
-            registeredHandles.remove(clientHandle);
+        if (clientName != null) {
+            registeredHandles.remove(clientName);
         }
     }
 
@@ -164,25 +165,42 @@ public class ClientHandler  implements Runnable {
         }
     }
     
-    private void checkRegistration(String handle) throws IOException {
-        if (registeredHandles.contains(handle)) {
+    private void checkRegistration(String clientName) throws IOException {
+        if (registeredHandles.contains(clientName)) {
             dosWriter.writeUTF("Error: Registration failed. Handle or alias already exists.");
             dosWriter.flush();
         } else {
-            this.clientHandle = handle;
-            registeredHandles.add(handle);
-            dosWriter.writeUTF("Welcome " + handle + "!");
-            System.out.println("Server: Registered new user - " + handle);
+            this.clientName = clientName;
+            registeredHandles.add(clientName);
+            dosWriter.writeUTF("Welcome " + clientName + "!");
+            System.out.println("Server: Registered new user - " + clientName);
             dosWriter.flush();
 
         }
     }
+
+    private void broadcastMsg(String message) {
+        for (ClientHandler clientHandler : clientHandlerList) {
+            try {
+                if (!clientHandler.clientName.equals(clientName)) {
+                    String broadcastMsg = clientName + ": " + message;
+                    clientHandler.dosWriter.writeUTF(broadcastMsg);
+                    clientHandler.dosWriter.flush();
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
 
     @Override
     public void run() {
         String command;
         try {
             while (true) {
+
+                dosWriter.writeUTF("Enter command: ");
                 command = disReader.readUTF(); // Read the command
                 
                 if (command == null || command.trim().isEmpty()) {
@@ -193,8 +211,8 @@ public class ClientHandler  implements Runnable {
                 String mainCommand = commandParts[0];
 
                 // Only registered clients can use commands other than /join, /leave, and /?
-                if (clientHandle == null && !mainCommand.equals("/join") && !mainCommand.equals("/leave") && !mainCommand.equals("/?") && !mainCommand.equals("/register")) {
-                    dosWriter.writeUTF("Error: You need to register first with /register <handle>");
+                if (clientName == null && !mainCommand.equals("/join") && !mainCommand.equals("/leave") && !mainCommand.equals("/?") && !mainCommand.equals("/register")) {
+                    dosWriter.writeUTF("Error: You need to register first with /register <username>");
                     dosWriter.flush();
                     continue;
                 }
@@ -223,7 +241,7 @@ public class ClientHandler  implements Runnable {
                     case "/store":
                         if (commandParts.length > 1) {
                             String fileName = commandParts[1];
-                            if (clientHandle == null) {
+                            if (clientName == null) {
                                 dosWriter.writeUTF("Error: You need to register first with /register <handle>");
                                 dosWriter.flush();
                             } else {
@@ -236,7 +254,7 @@ public class ClientHandler  implements Runnable {
                         break;
                     
                     case "/dir":
-                        if (clientHandle == null) {
+                        if (clientName == null) {
                             dosWriter.writeUTF("Error: You need to register first with /register <handle>");
                             dosWriter.flush();
                         } else {
@@ -250,6 +268,17 @@ public class ClientHandler  implements Runnable {
                             sendFile(fileName); // Send the requested file
                         } else {
                             dosWriter.writeUTF("Error: Missing filename for /get command.");
+                            dosWriter.flush();
+                        }
+                        break;
+
+                    case "/broadcast":
+                        if (commandParts.length > 1) {
+                            // get message (2nd element of commandParts until last)
+                            String message = String.join(" ", Arrays.copyOfRange(commandParts, 1, commandParts.length));
+                            broadcastMsg(message); // Send the requested file
+                        } else {
+                            dosWriter.writeUTF("Error: Missing message for /broadcast command.");
                             dosWriter.flush();
                         }
                         break;

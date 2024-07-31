@@ -59,18 +59,20 @@ public class ClientHandler  implements Runnable {
 
     private void printCommands() throws IOException {
         dosWriter.writeUTF(
-                "+-------------------------- LIST OF COMMANDS ---------------------------------+\n" +
-                        "| Input Syntax                    |   Description                             |\n" +
-                        "+---------------------------------+-------------------------------------------+\n" +
-                        "| /join <server_ip_add> <port>    | Connect to the server application         |\n" +
-                        "| /leave                          | Disconnect to the server application      |\n" +
-                        "| /register <handle>              | Register a unique handle or alias         |\n" +
-                        "| /store <filename>               | Send file to server                       |\n" +
-                        "| /dir                            | Request directory file list from a server |\n" +
-                        "| /get <filename>                 | Request a file from a server              |\n" +
-                        "| /?                              | Request command help to output all Input  |\n" +
-                        "|                                 | Syntax commands for references            |\n" +
-                        "+-----------------------------------------------------------------------------+"
+                    "+------------------------------- LIST OF COMMANDS -----------------------------------+\n" +
+                        "| Input Syntax                           |   Description                             |\n" +
+                        "+----------------------------------------+-------------------------------------------+\n" +
+                        "| /join <server_ip_add> <port>           | Connect to the server application         |\n" +
+                        "| /leave                                 | Disconnect to the server application      |\n" +
+                        "| /register <handle>                     | Register a unique handle or alias         |\n" +
+                        "| /store <filename>                      | Send file to server                       |\n" +
+                        "| /dir                                   | Request directory file list from a server |\n" +
+                        "| /get <filename>                        | Request a file from a server              |\n" +
+                        "| /?                                     | Request command help to output all Input  |\n" +
+                        "|                                        | Syntax commands for references            |\n" +
+                        "| /broadcast <message>                   | Broadcast a message to all clients        |\n" +
+                        "| /unicast <receiver_name> <message>     | Send a private message to a user          |\n" +
+                        "+------------------------------------------------------------------------------------+"
         );
         dosWriter.flush();
     }
@@ -188,7 +190,7 @@ public class ClientHandler  implements Runnable {
                     clientHandler.dosWriter.flush();
                 }
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                System.out.println("Error broadcasting message: " + e.getMessage());
             }
         }
     }
@@ -203,7 +205,7 @@ public class ClientHandler  implements Runnable {
                     break;
                 }
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                System.out.println("Error unicasting message: " + e.getMessage());
             }
         }
     }

@@ -199,7 +199,7 @@ public class ClientHandler  implements Runnable {
         for (ClientHandler clientHandler : clientHandlerList) {
             try {
                 if (clientHandler.clientName.equals(endClientName)) {
-                    String unicastMsg = clientName + ": " + message;
+                    String unicastMsg = "(PRIVATE) " + clientName + ": " + message;
                     clientHandler.dosWriter.writeUTF(unicastMsg);
                     clientHandler.dosWriter.flush();
                     break;

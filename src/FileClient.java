@@ -54,18 +54,20 @@ public class FileClient {
 
                     if (mainCommand.equals("/?")) {
                         String commands =
-                        "+-------------------------- LIST OF COMMANDS ---------------------------------+\n" +
-                        "| Input Syntax                    |   Description                             |\n" +
-                        "+---------------------------------+-------------------------------------------+\n" +
-                        "| /join <server_ip_add> <port>    | Connect to the server application         |\n" +
-                        "| /leave                          | Disconnect to the server application      |\n" +
-                        "| /register <handle>              | Register a unique handle or alias         |\n" +
-                        "| /store <filename>               | Send file to server                       |\n" +
-                        "| /dir                            | Request directory file list from a server |\n" +
-                        "| /get <filename>                 | Request a file from a server              |\n" +
-                        "| /?                              | Request command help to output all Input  |\n" +
-                        "|                                 | Syntax commands for references            |\n" +
-                        "+-----------------------------------------------------------------------------+";
+                                "+------------------------------- LIST OF COMMANDS -----------------------------------+\n" +
+                                        "| Input Syntax                           |   Description                             |\n" +
+                                        "+----------------------------------------+-------------------------------------------+\n" +
+                                        "| /join <server_ip_add> <port>           | Connect to the server application         |\n" +
+                                        "| /leave                                 | Disconnect to the server application      |\n" +
+                                        "| /register <handle>                     | Register a unique handle or alias         |\n" +
+                                        "| /store <filename>                      | Send file to server                       |\n" +
+                                        "| /dir                                   | Request directory file list from a server |\n" +
+                                        "| /get <filename>                        | Request a file from a server              |\n" +
+                                        "| /?                                     | Request command help to output all Input  |\n" +
+                                        "|                                        | Syntax commands for references            |\n" +
+                                        "| /broadcast <message>                   | Broadcast a message to all clients        |\n" +
+                                        "| /unicast <receiver_name> <message>     | Send a private message to a user          |\n" +
+                                        "+------------------------------------------------------------------------------------+";
 
                         System.out.println(commands);
                     }
@@ -111,6 +113,19 @@ public class FileClient {
                             System.out.println("Error: You need to register first with /register <handle>");
                         }
                     }
+
+                    else if (mainCommand.equals("/unicast") && commandParts.length > 2) {
+                        if (isRegistered) {
+                            // get end client name (the one who receives the message)
+                            String endClientName = commandParts[1];
+                            // get message (3rd element of commandParts until last)
+                            String message = String.join(" ", Arrays.copyOfRange(commandParts, 2, commandParts.length));
+                            sendPrivateMsg(endClientName, message);
+                        } else {
+                            System.out.println("Error: Usage: /unicast <end-client name> <message>");
+                        }
+                    }
+
                     else if (clientEndpoint != null && clientEndpoint.isConnected()) {
                         handleServerCommand(command);
                     }
@@ -154,7 +169,7 @@ public class FileClient {
                 dosWriter.flush();
                 disconnect();
             } catch (IOException e) {
-                System.out.println("Error during leaving: " + e.getMessage());
+                // System.out.println("Error during leaving: " + e.getMessage());
                 disconnect();
             }
         } else {
@@ -219,12 +234,12 @@ public class FileClient {
 
                 // Read the server's response (list of files)
                 String response = disReader.readUTF();
-                System.out.println("Server response: \n" + response);
+                System.out.println(response);
             } else {
                 System.out.println("Error: Not connected to any server. Use /join to connect.");
             }
         } catch (IOException e) {
-            System.out.println("Error during directory listing: " + e.getMessage());
+            System.out.println("Error during directory listing.");
         }
     }
 
@@ -234,6 +249,7 @@ public class FileClient {
                 dosWriter.writeUTF("/register " + handle);
                 dosWriter.flush();
 
+                this.setClientName(handle);
                 isRegistered = true;
             }
             else {
@@ -297,6 +313,20 @@ public class FileClient {
         }
     }
 
+    private void sendPrivateMsg(String endClientName, String message) {
+        try {
+            if (isConnected) {
+                // Send the /broadcast command with the message to the server
+                dosWriter.writeUTF("/unicast " + endClientName + " " + message);
+                dosWriter.flush();
+            } else {
+                System.out.println("Error: Not connected to any server. Use /join to connect.");
+            }
+        } catch (IOException e) {
+            System.out.println("Error during sending message: " + e.getMessage());
+        }
+    }
+
     public void listenMsg() {
         new Thread(() -> {
             while (isConnected) {
@@ -336,23 +366,6 @@ public class FileClient {
         System.out.println("Client instantiated successfully.");
 
         FileClient client = new FileClient();
-
-
-        String commands =
-        "+-------------------------- LIST OF COMMANDS ---------------------------------+\n" +
-        "| Input Syntax                    |   Description                             |\n" +
-        "+---------------------------------+-------------------------------------------+\n" +
-        "| /join <server_ip_add> <port>    | Connect to the server application         |\n" +
-        "| /leave                          | Disconnect to the server application      |\n" +
-        "| /register <handle>              | Register a unique handle or alias         |\n" +
-        "| /store <filename>               | Send file to server                       |\n" +
-        "| /dir                            | Request directory file list from a server |\n" +
-        "| /get <filename>                 | Request a file from a server              |\n" +
-        "| /?                              | Request command help to output all Input  |\n" +
-        "|                                 | Syntax commands for references            |\n" +
-        "+-----------------------------------------------------------------------------+";
-
-        System.out.println(commands);
         client.sendCommand();
     }
 }

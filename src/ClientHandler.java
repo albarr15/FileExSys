@@ -27,7 +27,7 @@ public class ClientHandler  implements Runnable {
         }
     }
 
-    public void setClientHandle(String clientName) {
+    public void setClientName(String clientName) {
         this.clientName = clientName;
     }
 
@@ -59,18 +59,20 @@ public class ClientHandler  implements Runnable {
 
     private void printCommands() throws IOException {
         dosWriter.writeUTF(
-                "+-------------------------- LIST OF COMMANDS ---------------------------------+\n" +
-                        "| Input Syntax                    |   Description                             |\n" +
-                        "+---------------------------------+-------------------------------------------+\n" +
-                        "| /join <server_ip_add> <port>    | Connect to the server application         |\n" +
-                        "| /leave                          | Disconnect to the server application      |\n" +
-                        "| /register <handle>              | Register a unique handle or alias         |\n" +
-                        "| /store <filename>               | Send file to server                       |\n" +
-                        "| /dir                            | Request directory file list from a server |\n" +
-                        "| /get <filename>                 | Request a file from a server              |\n" +
-                        "| /?                              | Request command help to output all Input  |\n" +
-                        "|                                 | Syntax commands for references            |\n" +
-                        "+-----------------------------------------------------------------------------+"
+                    "+------------------------------- LIST OF COMMANDS -----------------------------------+\n" +
+                        "| Input Syntax                           |   Description                             |\n" +
+                        "+----------------------------------------+-------------------------------------------+\n" +
+                        "| /join <server_ip_add> <port>           | Connect to the server application         |\n" +
+                        "| /leave                                 | Disconnect to the server application      |\n" +
+                        "| /register <handle>                     | Register a unique handle or alias         |\n" +
+                        "| /store <filename>                      | Send file to server                       |\n" +
+                        "| /dir                                   | Request directory file list from a server |\n" +
+                        "| /get <filename>                        | Request a file from a server              |\n" +
+                        "| /?                                     | Request command help to output all Input  |\n" +
+                        "|                                        | Syntax commands for references            |\n" +
+                        "| /broadcast <message>                   | Broadcast a message to all clients        |\n" +
+                        "| /unicast <receiver_name> <message>     | Send a private message to a user          |\n" +
+                        "+------------------------------------------------------------------------------------+"
         );
         dosWriter.flush();
     }
@@ -170,7 +172,7 @@ public class ClientHandler  implements Runnable {
             dosWriter.writeUTF("Error: Registration failed. Handle or alias already exists.");
             dosWriter.flush();
         } else {
-            this.clientName = clientName;
+            setClientName(clientName);
             registeredHandles.add(clientName);
             dosWriter.writeUTF("Welcome " + clientName + "!");
             System.out.println("Server: Registered new user - " + clientName);
@@ -188,7 +190,22 @@ public class ClientHandler  implements Runnable {
                     clientHandler.dosWriter.flush();
                 }
             } catch (IOException e) {
-                throw new RuntimeException(e);
+                System.out.println("Error broadcasting message: " + e.getMessage());
+            }
+        }
+    }
+
+    private void unicastMsg(String endClientName, String message) {
+        for (ClientHandler clientHandler : clientHandlerList) {
+            try {
+                if (clientHandler.clientName.equals(endClientName)) {
+                    String unicastMsg = "(PRIVATE) " + clientName + ": " + message;
+                    clientHandler.dosWriter.writeUTF(unicastMsg);
+                    clientHandler.dosWriter.flush();
+                    break;
+                }
+            } catch (IOException e) {
+                System.out.println("Error unicasting message: " + e.getMessage());
             }
         }
     }
@@ -200,7 +217,7 @@ public class ClientHandler  implements Runnable {
         try {
             while (true) {
 
-                dosWriter.writeUTF("Enter command: ");
+                // dosWriter.writeUTF("Enter command: ");
                 command = disReader.readUTF(); // Read the command
                 
                 if (command == null || command.trim().isEmpty()) {
@@ -276,9 +293,22 @@ public class ClientHandler  implements Runnable {
                         if (commandParts.length > 1) {
                             // get message (2nd element of commandParts until last)
                             String message = String.join(" ", Arrays.copyOfRange(commandParts, 1, commandParts.length));
-                            broadcastMsg(message); // Send the requested file
+                            broadcastMsg(message);
                         } else {
                             dosWriter.writeUTF("Error: Missing message for /broadcast command.");
+                            dosWriter.flush();
+                        }
+                        break;
+
+                    case "/unicast":
+                        if (commandParts.length > 2) {
+                            // get end client name (the one who receives the message)
+                            String endClientName = commandParts[1];
+                            // get message (3rd element of commandParts until last)
+                            String message = String.join(" ", Arrays.copyOfRange(commandParts, 2, commandParts.length));
+                            unicastMsg(endClientName, message);
+                        } else {
+                            dosWriter.writeUTF("Error: Usage: /unicast <end-client name> <message>");
                             dosWriter.flush();
                         }
                         break;

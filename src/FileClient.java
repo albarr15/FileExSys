@@ -169,7 +169,7 @@ public class FileClient {
                 dosWriter.flush();
                 disconnect();
             } catch (IOException e) {
-                System.out.println("Error during leaving: " + e.getMessage());
+                // System.out.println("Error during leaving: " + e.getMessage());
                 disconnect();
             }
         } else {
@@ -234,12 +234,12 @@ public class FileClient {
 
                 // Read the server's response (list of files)
                 String response = disReader.readUTF();
-                System.out.println("Server response: \n" + response);
+                System.out.println(response);
             } else {
                 System.out.println("Error: Not connected to any server. Use /join to connect.");
             }
         } catch (IOException e) {
-            System.out.println("Error during directory listing: " + e.getMessage());
+            System.out.println("Error during directory listing.");
         }
     }
 
@@ -249,6 +249,7 @@ public class FileClient {
                 dosWriter.writeUTF("/register " + handle);
                 dosWriter.flush();
 
+                this.setClientName(handle);
                 isRegistered = true;
             }
             else {
@@ -365,25 +366,6 @@ public class FileClient {
         System.out.println("Client instantiated successfully.");
 
         FileClient client = new FileClient();
-
-
-        String commands =
-                        "+------------------------------- LIST OF COMMANDS -----------------------------------+\n" +
-                        "| Input Syntax                           |   Description                             |\n" +
-                        "+----------------------------------------+-------------------------------------------+\n" +
-                        "| /join <server_ip_add> <port>           | Connect to the server application         |\n" +
-                        "| /leave                                 | Disconnect to the server application      |\n" +
-                        "| /register <handle>                     | Register a unique handle or alias         |\n" +
-                        "| /store <filename>                      | Send file to server                       |\n" +
-                        "| /dir                                   | Request directory file list from a server |\n" +
-                        "| /get <filename>                        | Request a file from a server              |\n" +
-                        "| /?                                     | Request command help to output all Input  |\n" +
-                        "|                                        | Syntax commands for references            |\n" +
-                        "| /broadcast <message>                   | Broadcast a message to all users          |\n" +
-                        "| /unicast <receiver_name> <message>     | Send a private message to a user          |\n" +
-                        "+------------------------------------------------------------------------------------+";
-
-        System.out.println(commands);
         client.sendCommand();
     }
 }

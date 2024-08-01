@@ -27,7 +27,7 @@ public class ClientHandler  implements Runnable {
         }
     }
 
-    public void setClientHandle(String clientName) {
+    public void setClientName(String clientName) {
         this.clientName = clientName;
     }
 
@@ -172,7 +172,7 @@ public class ClientHandler  implements Runnable {
             dosWriter.writeUTF("Error: Registration failed. Handle or alias already exists.");
             dosWriter.flush();
         } else {
-            this.clientName = clientName;
+            setClientName(clientName);
             registeredHandles.add(clientName);
             dosWriter.writeUTF("Welcome " + clientName + "!");
             System.out.println("Server: Registered new user - " + clientName);
@@ -217,7 +217,7 @@ public class ClientHandler  implements Runnable {
         try {
             while (true) {
 
-                dosWriter.writeUTF("Enter command: ");
+                // dosWriter.writeUTF("Enter command: ");
                 command = disReader.readUTF(); // Read the command
                 
                 if (command == null || command.trim().isEmpty()) {
